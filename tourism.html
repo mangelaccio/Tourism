@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
-<title>Taux de chomage</title>
+<title>Dépense moyenne d'un touriste à travers le monde</title>
 <style>
 body{
 	font-family:Arial
@@ -72,8 +72,8 @@ li
 </style>
 <body>
 <div id="head">
-<h1>Taux de chomage dans la zone euro (<span id="year">2008</span>) </h1>
-<h4>(source eurostat), utiliser le slider pour modifier la date.</h4>
+<h1>Dépense moyenne d'un touriste à travers le monde (<span id="year">2008</span>) </h1>
+<h4>utiliser le slider pour modifier la date.</h4>
 <div id=slider></div>
 </div>
 
@@ -129,9 +129,9 @@ var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[9]).domain([0,30])
 // projection !
 
 var projection = d3.geo.azimuthalEqualArea()
-                      .translate([width/2, height/2])
-		      .center([0,52])
-                      .scale([1000]);
+                .translate([width/2, height/2])
+		      	.center([0,52])
+                .scale([1000]);
 
 
 var path = d3.geo.path().projection(projection)
@@ -139,10 +139,10 @@ var path = d3.geo.path().projection(projection)
 var cols = colorbrewer.Blues[9]
 
 // creation de la légende
-var legend="<h4>Taux de chomâge</h4><ul>"
+var legend="<h4>Somme dépensée en moyenne</h4><ul>"
 for(i=0;i<cols.length;i++){
- var bornes=scalecolor.invertExtent(cols[i])
- legend+="<li> <span style='color:"+cols[i]+";font-size:1.5em'>&#9632;</span> [" + d3.round(bornes[0],1)+"%, "+ d3.round(bornes[1],1)+"%]</li>"
+	var bornes = scalecolor.invertExtent(cols[i])
+	legend+="<li> <span style='color:"+cols[i]+";font-size:1.5em'>&#9632;</span> [" + d3.round(bornes[0],1)+" USD, "+ d3.round(bornes[1],1)+" USD]</li>"
 }
 legend+="</ul>"
 console.log(legend)
@@ -202,7 +202,7 @@ queue()
 
 	// *********** DISPLAY COUNTRY LABEL
 
-	country.append("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d.properties.choms.X2008 + "$" : d.properties.name})
+	country.append("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d3.round(d.properties.choms.X2008,2) + " USD" : d.properties.name})
 	
 
 
@@ -236,7 +236,7 @@ var update = function(feature){
 	// d3.rgb("#ag4444").darker()
 	country.style("fill",function(d){if(d.properties.choms && d.properties.choms[feature]!=":"){return scalecolor(d.properties.choms[feature]) }else{return "#ddd"}})
 	
-	country.selectAll("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d.properties.choms[feature] + "%" : d.properties.name})
+	country.selectAll("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d3.round(d.properties.choms[feature],2) + " USD" : d.properties.name})
 	
 	d3.select("#year").html(feature.substring(1,5))
 }
