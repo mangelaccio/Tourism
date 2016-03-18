@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Taux de chomage</title>
+<style>
+body{
+	font-family:Arial
+	
+}
+circle{
+	stroke-width:2
+}
+text{
+	text-anchor:middle;
+	font-size:0.9em;
+	dominant-baseline:middle;
+	pointer-events:none;
+	cursor:pointer
+}
+path{
+	fill:#ddd;
+	opacity:1;
+	stroke-width:1px;
+	stroke:#222;
+}
+svg{
+	background:#d7e3f4;
+	width:100%;
+	height:600px;
+}
+li
+{
+    list-style-type: none;
+    margin-left:-30px;
+}
+#slider{
+	margin: 15px;
+	margin-bottom:30px;
+}
+#slider label {
+  	position: absolute;
+  	width: 20px;
+  	margin-top: 20px;
+  	margin-left: -10px;
+  	text-align: center;
+}
+#container{
+	position:relative;
+	width:70%;	
+	margin-left:15%;
+}
+#head{
+	position:relative;
+	width:70%;	
+	margin-left:15%;
+}
+#legend{
+	position:absolute;
+	top:1em;
+	right:1em;
+	line-height:1em;
+	margin:0.5em;
+	padding:0.5em;
+	background: white;
+    	background: rgba(255,255,255,0.8);
+    	box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    	border-radius: 5px;
+}
+#legend h4{
+	margin:0.3em;
+}
+
+</style>
+<body>
+<div id="head">
+<h1>Taux de chomage dans la zone euro (<span id="year">2008</span>) </h1>
+<h4>(source eurostat), utiliser le slider pour modifier la date.</h4>
+<div id=slider></div>
+</div>
+
+<div id="container">
+<svg>
+<defs><filter id="shadow" x="-10%" y="-10%" width="140%" height="140%"><feGaussianBlur stdDeviation="1 1" result="shadow"/><feOffset dx="1" dy="1"/></filter></defs>
+</svg>
+</div>
+
+
+<script src="./d3.v3.min.js" charset="utf-8"></script>
+<script src="./colorbrewer.v1.min.js" charset="utf-8"></script>
+
+<script src="./queue.v1.min.js"></script>
+<link rel="stylesheet" href="//code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css">
+<script src="//code.jquery.com/jquery-1.10.2.js"></script>
+<script src="//code.jquery.com/ui/1.11.2/jquery-ui.js"></script>
+
+<script>
+
+// premier jet de version finale
+// finalisation de l échelle de couleur quantize + colorbrewer
+// ajout de la légende
+// ajout des années sur le slider
+// mise en forme des labels / ombrages svg:defs feGaussianBlur
+// mise en forme et css
+
+var margin = 20
+var width  = d3.select("#container").style("width") 
+width=+width.substring(0,width.length-2)
+var height = d3.select("#container").style("height")
+height=+height.substring(0,height.length-2)
+
+
+
+
+var slide = function(event,ui){
+	var featuresnames= Object.keys(Data[0])
+	featuresnames.splice(0,1)
+	console.log(featuresnames)
+	update(featuresnames[ui.value])
+}
+
+
+$("#slider").slider({min:0, max:5, step:1, value:0, slide:slide}) 
+
+
+var svg = d3.select("svg")
+
+// echelle de couleur quantize + colorbrewer
+var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[9]).domain([0,30])
+
+// projection !
+
+var projection = d3.geo.azimuthalEqualArea()
+                      .translate([width/2, height/2])
+		      .center([0,52])
+                      .scale([1000]);
+
+
+var path = d3.geo.path().projection(projection)
+
+var cols = colorbrewer.Blues[9]
+
+// creation de la légende
+var legend="<h4>Taux de chomâge</h4><ul>"
+for(i=0;i<cols.length;i++){
+ var bornes=scalecolor.invertExtent(cols[i])
+ legend+="<li> <span style='color:"+cols[i]+";font-size:1.5em'>&#9632;</span> [" + d3.round(bornes[0],1)+"%, "+ d3.round(bornes[1],1)+"%]</li>"
+}
+legend+="</ul>"
+console.log(legend)
+
+// ajout de la légende
+d3.select("#container").append("div").attr("id","legend").html(legend)
+
+
+
+
+var Data = []
+
+
+
+queue()
+   .defer(d3.json, './worldMap.json') // topojson polygons
+   .defer(d3.csv, './out.csv') // geojson points
+   .await(function(error,features,data){
+
+	console.log(features.features)
+
+	// creation des labels du slider
+ 	var opt = $("#slider").data().uiSlider.options;
+
+	var featuresnames= Object.keys(data[0]).sort()
+	//featuresnames.splice(0,2)
+	
+	console.log(Object.keys(data[0]).sort())
+	var labs=[]
+	console.log(featuresnames)
+	for (var i = 1; i < featuresnames.length ; i=i+1) { // par pays
+   		labs.push({index: (i-1), label:featuresnames[i].substring(1,5), pos:(i-1)/(featuresnames.length)*135});
+	}
+	
+	console.log(labs)
+	d3.select("#slider").selectAll("label").data(labs).enter().append("label").text(function(d){return d.label}).style("left",function(d){return d.pos+"%"})
+
+
+	var dlookup= d3.nest().key(function(d){return d.Country}).rollup(function(d){return d[0]}).map(data)
+
+	// console.log(dlookup)
+	features.features.forEach(function(c){c.properties.choms = dlookup[c.properties.admin]})
+	
+
+	// *********** DISPLAY ALL COUNTRY WITH GRAY DEFAULT COLOR
+
+	//console.log(features.features)
+	var country = svg.selectAll("path").data(features.features)
+	console.log(country)
+	country.enter().append("path")
+		.attr("d",path)
+		.style("fill",function(d){return d.properties.choms ? scalecolor(d.properties.choms.X2008) : "#ddd"})
+		.on("mouseover",function(d){console.log(d)})
+	
+	console.log(data)
+	Data = data
+
+	// *********** DISPLAY COUNTRY LABEL
+
+	country.append("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d.properties.choms.X2008 + "$" : d.properties.name})
+	
+
+
+	// ajout des ombrages des labels
+	var labels = svg.selectAll(".labshadow").data(data)
+	labels.enter().append("text")
+		.attr("x",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[0]})
+		.attr("y",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[1]})
+		.attr("filter","url(#shadow)")
+		.attr("class",".labshadow")
+		.html(function(d){return d.Country})
+	
+	// ajout des labels
+	var labels = svg.selectAll(".labels").data(data)
+	labels.enter().append("text")
+		.attr("x",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[0]})
+		.attr("y",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[1]})
+		.style("fill","#eee")
+		.html(function(d){return d.Country})
+
+
+	// ***********************************
+	
+	
+	
+})
+
+
+var update = function(feature){
+	var country = svg.selectAll("path")
+	// d3.rgb("#ag4444").darker()
+	country.style("fill",function(d){if(d.properties.choms && d.properties.choms[feature]!=":"){return scalecolor(d.properties.choms[feature]) }else{return "#ddd"}})
+	
+	country.selectAll("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d.properties.choms[feature] + "%" : d.properties.name})
+	
+	d3.select("#year").html(feature.substring(1,5))
+}
+
+
+</script>
