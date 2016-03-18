@@ -148,7 +148,7 @@ legend+="</ul>"
 console.log(legend)
 
 // ajout de la légende
-d3.select("#container").append("div").attr("id","legend").html(legend)
+//d3.select("#container").append("div").attr("id","legend").html(legend)
 
 
 
@@ -172,9 +172,9 @@ queue()
 	
 	console.log(Object.keys(data[0]).sort())
 	var labs=[]
-	console.log(featuresnames)
+
 	for (var i = 1; i < featuresnames.length ; i=i+1) { // par pays
-   		labs.push({index: (i-1), label:featuresnames[i].substring(1,5), pos:(i-1)/(featuresnames.length)*135});
+   		labs.push({index: (i-1), label:featuresnames[i].substring(1,5), pos:((i-1)/(featuresnames.length-2)*100) - (featuresnames[i].substring(1,5).length/2) + 0.45});
 	}
 	
 	console.log(labs)
@@ -243,3 +243,4 @@ var update = function(feature){
 
 
 </script>
+
