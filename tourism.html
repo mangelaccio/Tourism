@@ -102,12 +102,12 @@ li
 // mise en forme et css
 
 var margin = 20
+
 var width  = d3.select("#container").style("width") 
 width=+width.substring(0,width.length-2)
+
 var height = d3.select("#container").style("height")
 height=+height.substring(0,height.length-2)
-
-
 
 
 var slide = function(event,ui){
@@ -117,38 +117,37 @@ var slide = function(event,ui){
 	update(featuresnames[ui.value])
 }
 
-
 $("#slider").slider({min:0, max:5, step:1, value:0, slide:slide}) 
-
 
 var svg = d3.select("svg")
 
+var nbColors = 9
+
 // echelle de couleur quantize + colorbrewer
-var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[9]).domain([0,30])
+var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[nbColors]).domain([0,2500])
 
 // projection !
-
 var projection = d3.geo.azimuthalEqualArea()
-                .translate([width/2, height/2])
+                .translate([width/3, height/3])
 		      	.center([0,52])
                 .scale([1000]);
 
 
 var path = d3.geo.path().projection(projection)
 
-var cols = colorbrewer.Blues[9]
+var cols = colorbrewer.Blues[nbColors]
 
 // creation de la légende
 var legend="<h4>Somme dépensée en moyenne</h4><ul>"
 for(i=0;i<cols.length;i++){
-	var bornes = scalecolor.invertExtent(cols[i])
-	legend+="<li> <span style='color:"+cols[i]+";font-size:1.5em'>&#9632;</span> [" + d3.round(bornes[0],1)+" USD, "+ d3.round(bornes[1],1)+" USD]</li>"
+	var boundary = scalecolor.invertExtent(cols[i])
+	legend+="<li> <span style='color:"+cols[i]+";font-size:1.5em'>&#9632;</span> [" + d3.round(boundary[0],1)+" USD, "+ d3.round(boundary[1],1)+" USD]</li>"
 }
 legend+="</ul>"
 console.log(legend)
 
 // ajout de la légende
-//d3.select("#container").append("div").attr("id","legend").html(legend)
+d3.select("#container").append("div").attr("id","legend").html(legend)
 
 
 
