@@ -127,10 +127,10 @@ var nbColors = 9
 var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[nbColors]).domain([0,2500])
 
 // projection !
-var projection = d3.geo.azimuthalEqualArea()
-                .translate([width/3, height/3])
-		      	.center([0,52])
-                .scale([1000]);
+var projection = d3.geo.mercator()
+    .scale((width + 1) / 2 / Math.PI)
+    .translate([width / 2, height / 1.5])
+    .precision(.1);
 
 
 var path = d3.geo.path().projection(projection)
@@ -158,7 +158,7 @@ var Data = []
 
 queue()
    .defer(d3.json, './worldMap.json') // topojson polygons
-   .defer(d3.csv, './out.csv') // geojson points
+   .defer(d3.csv, './datas.csv') // geojson points
    .await(function(error,features,data){
 
 	console.log(features.features)
@@ -193,7 +193,7 @@ queue()
 	console.log(country)
 	country.enter().append("path")
 		.attr("d",path)
-		.style("fill",function(d){return d.properties.choms ? scalecolor(d.properties.choms.X2008) : "#ddd"})
+		.style("fill",function(d){ console.log(d.properties.choms); return d.properties.choms ? scalecolor(d.properties.choms.X2008) : "#ddd"})
 		.on("mouseover",function(d){console.log(d)})
 	
 	console.log(data)
@@ -212,7 +212,7 @@ queue()
 		.attr("y",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[1]})
 		.attr("filter","url(#shadow)")
 		.attr("class",".labshadow")
-		.html(function(d){return d.Country})
+		//.html(function(d){return d.Country})
 	
 	// ajout des labels
 	var labels = svg.selectAll(".labels").data(data)
@@ -220,7 +220,7 @@ queue()
 		.attr("x",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[0]})
 		.attr("y",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[1]})
 		.style("fill","#eee")
-		.html(function(d){return d.Country})
+		//.html(function(d){return d.Country})
 
 
 	// ***********************************
