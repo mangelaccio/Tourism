@@ -4,7 +4,6 @@
 <style>
 body{
 	font-family:Arial
-	
 }
 .country:hover{
   stroke: red;
@@ -45,9 +44,10 @@ li
   	text-align: center;
 }
 #container{
+	margin:auto;
+	max-width:70%;
 	position:relative;
-	width:70%;	
-	margin-left:15%;
+	height:70%;	
 }
 #head{
 	position:relative;
@@ -69,7 +69,9 @@ li
 #legend h4{
 	margin:0.3em;
 }
-
+.hidden { 
+  display: none; 
+}
 div.tooltip {
   color: #222; 
   background: #fff; 
@@ -89,9 +91,7 @@ div.tooltip {
 </div>
 
 <div id="container">
-<svg>
-<defs><filter id="shadow" x="-10%" y="-10%" width="140%" height="140%"><feGaussianBlur stdDeviation="1 1" result="shadow"/><feOffset dx="1" dy="1"/></filter></defs>
-</svg>
+
 </div>
 
 
@@ -107,12 +107,10 @@ div.tooltip {
 <script src="//code.jquery.com/ui/1.11.2/jquery-ui.js"></script>
 
 <script>
+d3.select(window).on("resize", redraw);
 
-var width  = d3.select("#container").style("width") 
-width=+width.substring(0,width.length-2)
-
-var height = d3.select("#container").style("height")
-height=+height.substring(0,height.length-2)
+var width = document.getElementById('container').offsetWidth-60;
+var height = width / 2;
 
 var slide = function(event,ui){
 	var featuresnames= Object.keys(Data[0])
@@ -122,27 +120,20 @@ var slide = function(event,ui){
 
 $("#slider").slider({min:0, max:5, step:1, value:0, slide:slide}) 
 
-
 var nbColors = 9
 
 // echelle de couleur quantize + colorbrewer
 var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[nbColors]).domain([0,2500])
 
 
-var svg = d3.select("svg")
-    .attr("width", width)
-    .attr("height", height);
-	
-// projection !
-var projection = d3.geo.mercator()
-    .scale((width + 1) / 2 / Math.PI)
-    .translate([width / 2, height / 1.5])
-    .precision(.1);
+var zoom = d3.behavior.zoom()
+    .scaleExtent([1, 8])
+    .on("zoom", move);
 
-var path = d3.geo.path()
-    .projection(projection);
-	
-var g = svg.append("g");
+var topo,projection,path,svg,g;
+var tooltip = d3.select("#container").append("div").attr("class", "tooltip hidden");
+
+setup(width,height);
 
 var cols = colorbrewer.Blues[nbColors]
 
@@ -159,7 +150,23 @@ d3.select("#container").append("div").attr("id","legend").html(legend)
 
 var Data = []
 
-var tooltip = d3.select("#container").append("div").attr("class", "tooltip hidden");
+function setup(width,height){
+	projection = d3.geo.mercator()
+		.scale((width ) / 2 / Math.PI)
+		.translate([0, 100])
+		.precision(.1);
+
+	path = d3.geo.path().projection(projection);
+
+	svg = d3.select("#container").append("svg")
+		.attr("width", width)
+		.attr("height", height)
+		.append("g")
+		.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+		.call(zoom);
+
+	g = svg.append("g");
+}
 
 queue()
    .defer(d3.json, './worldMap.json') // topojson polygons
@@ -167,7 +174,7 @@ queue()
    .await(function(error,features,data){
 
 	var featuresnames= Object.keys(data[0]).sort()
-	
+	year = featuresnames[0]
 	var labs=[]
 
 	for (var i = 1; i < featuresnames.length ; i=i+1) { // par pays
@@ -176,38 +183,50 @@ queue()
 	
 	d3.select("#slider").selectAll("label").data(labs).enter().append("label").text(function(d){return d.label}).style("left",function(d){return d.pos+"%"})
 
-
 	var dlookup= d3.nest().key(function(d){return d.Country}).rollup(function(d){return d[0]}).map(data)
 
 	features.features.forEach(function(c){c.properties.choms = dlookup[c.properties.admin]})
 	
 	Data = data
 
-	// *********** DISPLAY ALL COUNTRY WITH GRAY DEFAULT COLOR
+	topo = features.features;
+	draw(topo);	
+})
 
-	var country = g.selectAll("path").data(features.features)	
+
+function draw(topo) {
+	var country = g.selectAll("path").data(topo);
+
 	country.enter()
 		.append("path")
 		.attr("class", "country")
 		.attr("d", path)
 		.style("fill",function(d){return d.properties.choms ? scalecolor(d.properties.choms.X2008) : "#ddd"})
-	
-	
-	update();	
-})
+		
+	update("X"+d3.select("#year").text())
+}
 
-var zoom = d3.behavior.zoom()
-    .on("zoom",function() {
-        g.attr("transform","translate("+ 
-            d3.event.translate.join(",")+")scale("+d3.event.scale+")");
-        g.selectAll("circle")
-            .attr("d", path.projection(projection));
-        g.selectAll("path")  
-            .attr("d", path.projection(projection)); 
-  });
+function redraw() {
+	width = document.getElementById('container').offsetWidth-60;
+	height = width / 2;
+	d3.select('svg').remove();
+	setup(width,height);
+	draw(topo);
+}
 
-svg.call(zoom)
+function move() {
+	var t = d3.event.translate;
+	var s = d3.event.scale;  
+	var h = height / 3;
 
+	t[0] = Math.min(width / 2 * (s - 1), Math.max(width / 2 * (1 - s), t[0]));
+	t[1] = Math.min(height / 2 * (s - 1) + h * s, Math.max(height / 2 * (1 - s) - h * s, t[1]));
+
+	zoom.translate(t);
+	g.style("stroke-width", 1 / s).attr("transform", "translate(" + t + ")scale(" + s + ")");
+}
+
+//update for label and country color 
 var update = function(feature){
 	var country = svg.selectAll("path")
 
@@ -219,19 +238,20 @@ var update = function(feature){
 	
 	d3.select("#year").html(feature.substring(1,5))
 
+	var offsetL = document.getElementById('container').offsetLeft+(width/2)-200;
+	var offsetT =document.getElementById('container').offsetTop+(height/2)-150;
 	country
-    .on("mousemove", function(d,i) {
-      var mouse = d3.mouse(svg.node()).map( function(d) { return parseInt(d); } );
-        tooltip
-          .classed("hidden", false)
-          .attr("style", "left:"+(mouse[0]+20)+"px;top:"+(mouse[1]+20)+"px")
-          .html(d.properties.choms ? d.properties.choms.Country + " : " + d3.round(d.properties.choms[feature],2) + " USD" : d.properties.name)
-      })
-      .on("mouseout",  function(d,i) {
-        tooltip.classed("hidden", true)
-		.attr("style", "")
-      });
+		.on("mousemove", function(d,i) {
+			var mouse = d3.mouse(svg.node()).map( function(d) { return parseInt(d); } );
+			tooltip
+				.classed("hidden", false)
+				.attr("style", "left:"+(mouse[0]+offsetL)+"px;top:"+(mouse[1]+offsetT)+"px")
+				.html(d.properties.choms ? d.properties.choms.Country + " : " + d3.round(d.properties.choms[feature],2) + " USD" : d.properties.name)
+		})
+		.on("mouseout",  function(d,i) {
+			tooltip.classed("hidden", true)
+			.attr("style", "")
+		});
 }
-
 </script>
 
