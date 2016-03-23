@@ -6,8 +6,9 @@ body{
 	font-family:Arial
 	
 }
-circle{
-	stroke-width:2
+.country:hover{
+  stroke: red;
+  stroke-width: .7px;
 }
 text{
 	text-anchor:middle;
@@ -69,6 +70,16 @@ li
 	margin:0.3em;
 }
 
+div.tooltip {
+  color: #222; 
+  background: #fff; 
+  padding: .5em; 
+  text-shadow: #f5f5f5 0 1px 0;
+  border-radius: 2px; 
+  box-shadow: 0px 0px 2px 0px #a6a6a6; 
+  opacity: 0.9; 
+  position: absolute;
+}
 </style>
 <body>
 <div id="head">
@@ -87,6 +98,9 @@ li
 <script src="./d3.v3.min.js" charset="utf-8"></script>
 <script src="./colorbrewer.v1.min.js" charset="utf-8"></script>
 
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/topojson.v0.min.js"></script>
+
 <script src="./queue.v1.min.js"></script>
 <link rel="stylesheet" href="//code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css">
 <script src="//code.jquery.com/jquery-1.10.2.js"></script>
@@ -94,46 +108,41 @@ li
 
 <script>
 
-// premier jet de version finale
-// finalisation de l échelle de couleur quantize + colorbrewer
-// ajout de la légende
-// ajout des années sur le slider
-// mise en forme des labels / ombrages svg:defs feGaussianBlur
-// mise en forme et css
-
-var margin = 20
-
 var width  = d3.select("#container").style("width") 
 width=+width.substring(0,width.length-2)
 
 var height = d3.select("#container").style("height")
 height=+height.substring(0,height.length-2)
 
-
 var slide = function(event,ui){
 	var featuresnames= Object.keys(Data[0])
 	featuresnames.splice(0,1)
-	console.log(featuresnames)
 	update(featuresnames[ui.value])
 }
 
 $("#slider").slider({min:0, max:5, step:1, value:0, slide:slide}) 
 
-var svg = d3.select("svg")
 
 var nbColors = 9
 
 // echelle de couleur quantize + colorbrewer
 var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[nbColors]).domain([0,2500])
 
+
+var svg = d3.select("svg")
+    .attr("width", width)
+    .attr("height", height);
+	
 // projection !
 var projection = d3.geo.mercator()
     .scale((width + 1) / 2 / Math.PI)
     .translate([width / 2, height / 1.5])
     .precision(.1);
 
-
-var path = d3.geo.path().projection(projection)
+var path = d3.geo.path()
+    .projection(projection);
+	
+var g = svg.append("g");
 
 var cols = colorbrewer.Blues[nbColors]
 
@@ -144,102 +153,85 @@ for(i=0;i<cols.length;i++){
 	legend+="<li> <span style='color:"+cols[i]+";font-size:1.5em'>&#9632;</span> [" + d3.round(boundary[0],1)+" USD, "+ d3.round(boundary[1],1)+" USD]</li>"
 }
 legend+="</ul>"
-console.log(legend)
 
 // ajout de la légende
 d3.select("#container").append("div").attr("id","legend").html(legend)
 
-
-
-
 var Data = []
 
-
+var tooltip = d3.select("#container").append("div").attr("class", "tooltip hidden");
 
 queue()
    .defer(d3.json, './worldMap.json') // topojson polygons
    .defer(d3.csv, './datas.csv') // geojson points
    .await(function(error,features,data){
 
-	console.log(features.features)
-
-	// creation des labels du slider
- 	var opt = $("#slider").data().uiSlider.options;
-
 	var featuresnames= Object.keys(data[0]).sort()
-	//featuresnames.splice(0,2)
 	
-	console.log(Object.keys(data[0]).sort())
 	var labs=[]
 
 	for (var i = 1; i < featuresnames.length ; i=i+1) { // par pays
    		labs.push({index: (i-1), label:featuresnames[i].substring(1,5), pos:((i-1)/(featuresnames.length-2)*100) - (featuresnames[i].substring(1,5).length/2) + 0.45});
 	}
 	
-	console.log(labs)
 	d3.select("#slider").selectAll("label").data(labs).enter().append("label").text(function(d){return d.label}).style("left",function(d){return d.pos+"%"})
 
 
 	var dlookup= d3.nest().key(function(d){return d.Country}).rollup(function(d){return d[0]}).map(data)
 
-	// console.log(dlookup)
 	features.features.forEach(function(c){c.properties.choms = dlookup[c.properties.admin]})
 	
+	Data = data
 
 	// *********** DISPLAY ALL COUNTRY WITH GRAY DEFAULT COLOR
 
-	//console.log(features.features)
-	var country = svg.selectAll("path").data(features.features)
-	console.log(country)
-	country.enter().append("path")
-		.attr("d",path)
-		.style("fill",function(d){ console.log(d.properties.choms); return d.properties.choms ? scalecolor(d.properties.choms.X2008) : "#ddd"})
-		.on("mouseover",function(d){console.log(d)})
-	
-	console.log(data)
-	Data = data
-
-	// *********** DISPLAY COUNTRY LABEL
-
-	country.append("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d3.round(d.properties.choms.X2008,2) + " USD" : d.properties.name})
-	
-
-
-	// ajout des ombrages des labels
-	var labels = svg.selectAll(".labshadow").data(data)
-	labels.enter().append("text")
-		.attr("x",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[0]})
-		.attr("y",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[1]})
-		.attr("filter","url(#shadow)")
-		.attr("class",".labshadow")
-		//.html(function(d){return d.Country})
-	
-	// ajout des labels
-	var labels = svg.selectAll(".labels").data(data)
-	labels.enter().append("text")
-		.attr("x",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[0]})
-		.attr("y",function(d){var p = projection([+d.Longitude,+d.Latitude]); return p[1]})
-		.style("fill","#eee")
-		//.html(function(d){return d.Country})
-
-
-	// ***********************************
+	var country = g.selectAll("path").data(features.features)	
+	country.enter()
+		.append("path")
+		.attr("class", "country")
+		.attr("d", path)
+		.style("fill",function(d){return d.properties.choms ? scalecolor(d.properties.choms.X2008) : "#ddd"})
 	
 	
-	
+	update();	
 })
 
+var zoom = d3.behavior.zoom()
+    .on("zoom",function() {
+        g.attr("transform","translate("+ 
+            d3.event.translate.join(",")+")scale("+d3.event.scale+")");
+        g.selectAll("circle")
+            .attr("d", path.projection(projection));
+        g.selectAll("path")  
+            .attr("d", path.projection(projection)); 
+  });
+
+svg.call(zoom)
 
 var update = function(feature){
 	var country = svg.selectAll("path")
-	// d3.rgb("#ag4444").darker()
+
+	if(!feature){
+		feature = "X2008";
+	}
+
 	country.style("fill",function(d){if(d.properties.choms && d.properties.choms[feature]!=":"){return scalecolor(d.properties.choms[feature]) }else{return "#ddd"}})
 	
-	country.selectAll("title").html(function(d){return d.properties.choms ? d.properties.choms.Country + " : " + d3.round(d.properties.choms[feature],2) + " USD" : d.properties.name})
-	
 	d3.select("#year").html(feature.substring(1,5))
-}
 
+	country
+    .on("mousemove", function(d,i) {
+      var mouse = d3.mouse(svg.node()).map( function(d) { return parseInt(d); } );
+        tooltip
+          .classed("hidden", false)
+          .attr("style", "left:"+(mouse[0]+20)+"px;top:"+(mouse[1]+20)+"px")
+          .html(d.properties.choms ? d.properties.choms.Country + " : " + d3.round(d.properties.choms[feature],2) + " USD" : d.properties.name)
+      })
+      .on("mouseout",  function(d,i) {
+        tooltip.classed("hidden", true)
+		.attr("style", "")
+      });
+}
 
 </script>
 
