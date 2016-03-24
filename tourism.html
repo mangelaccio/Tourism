@@ -6,7 +6,7 @@ body{
 	font-family:Arial
 }
 .country:hover{
-  stroke: red;
+  stroke: white;
   stroke-width: .7px;
 }
 text{
@@ -85,7 +85,7 @@ div.tooltip {
 </style>
 <body>
 <div id="head">
-<h1>Dépense moyenne d'un touriste à travers le monde (<span id="year">2008</span>) </h1>
+<h1>Apport moyen (en dollars) d'un touriste à travers le monde en <span id="year">2008</span></h1>
 <h4>utiliser le slider pour modifier la date.</h4>
 <div id=slider></div>
 </div>
@@ -122,8 +122,10 @@ $("#slider").slider({min:0, max:5, step:1, value:0, slide:slide})
 
 var nbColors = 9
 
+var cols = colorbrewer.Reds[nbColors]
+
 // echelle de couleur quantize + colorbrewer
-var scalecolor = d3.scale.quantize().range(colorbrewer.Blues[nbColors]).domain([0,2500])
+var scalecolor = d3.scale.quantize().range(cols).domain([0,5000])
 
 
 var zoom = d3.behavior.zoom()
@@ -135,7 +137,7 @@ var tooltip = d3.select("#container").append("div").attr("class", "tooltip hidde
 
 setup(width,height);
 
-var cols = colorbrewer.Blues[nbColors]
+
 
 // creation de la légende
 var legend="<h4>Somme dépensée en moyenne</h4><ul>"
